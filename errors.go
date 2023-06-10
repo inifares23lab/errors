@@ -1,6 +1,7 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 	"runtime/debug"
@@ -22,6 +23,7 @@ const (
 //
 //	error: The wrapped error with or without the location of the caller.
 func Wrap(description string, err error) error {
+	errors.Join()
 	if err == nil {
 		if description == "" {
 			return nil
@@ -71,4 +73,24 @@ func locateAt(str string, skip int) error {
 	// this should never happen but if it does it adds the goroutine stacktrace with a little extra overhead
 	return fmt.Errorf("%s at \"could not locate the error, getting stacktrace:\n\t(%s)\"",
 		str, debug.Stack())
+}
+
+func Is(err error, target error) bool {
+	return errors.Is(err, target)
+}
+
+func As(err error, target any) bool {
+	return errors.As(err, target)
+}
+
+func Unwrap(err error) error {
+	return errors.Unwrap(err)
+}
+
+func Join(errs ...error) error {
+	return errors.Join(errs...)
+}
+
+func New(s string) error {
+	return errors.New(s)
 }
