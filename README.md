@@ -10,6 +10,4 @@ Locates the errors more flexibly.
 
 The assumptions are that I want to know what and when it happened but without adding much overhead hence the conditional location functionality and the "sligtly enforced" description.
 
-## TODO
-
-- reimplement Join to make trace more readable
+- The Join functionality is also unchanged but the output is more readable with the formatting in use here
