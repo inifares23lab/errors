@@ -5,9 +5,10 @@ import (
 	"fmt"
 )
 
-const _NO_DESCRIPTION = "error with no description"
-
-var errDefault = errors.New(_NO_DESCRIPTION)
+const (
+	_NO_DESCRIPTION = "error with no description"
+	_CAUSED_BY      = "\n\tcaused by:\n"
+)
 
 // Wrap formats an error message with an optional underlying error wrapped as its cause.
 // It locates the error only if it is the first in the chain or if a descripion is missing
@@ -20,32 +21,26 @@ var errDefault = errors.New(_NO_DESCRIPTION)
 // Returns:
 //
 //	error: The wrapped error with or without the location of the caller.
-func Wrap(description string, err error) error {
-	if err == nil {
-		if description == "" {
-			return nil
-		}
-		return locateAt(errors.New(description), 2)
-	}
-	if u, ok := err.(interface {
-		Unwrap() []error
-	}); ok && len(u.Unwrap()) > 1 {
-		start, end := errorJoinedCauseFormat()
-		if description == "" {
-			return fmt.Errorf("%s%s%w%s", locateAt(errDefault, 2), start, err, end)
-		}
-		return fmt.Errorf("%s%s%w%s", description, start, err, end)
-	}
+func Wrap(description string, cause error) error {
 	if description == "" {
-		return fmt.Errorf("%s%s%w", locateAt(errDefault, 2), errorCauseFormat(), err)
+		description = _NO_DESCRIPTION
 	}
-	return fmt.Errorf("%s%s%w", description, errorCauseFormat(), err)
+	if cause == nil {
+		return errors.New(description)
+	}
+	return fmt.Errorf("%s%s%w", description, _CAUSED_BY, cause)
 }
 
-func errorCauseFormat() string {
-	return "\n\tcaused by:\n"
+func WrapLocate(description string, cause error) error {
+	if description == "" {
+		description = _NO_DESCRIPTION
+	}
+	if cause == nil {
+		return locateAt(description, 2)
+	}
+	return fmt.Errorf("%s%s%w", locateAt(description, 2), _CAUSED_BY, cause)
 }
 
-func errorJoinedCauseFormat() (string, string) {
-	return "\n\tcaused by:\n[\n", "\n]"
+func NewLocate(str string) error {
+	return locateAt(str, 2)
 }
