@@ -3,36 +3,11 @@ package errors
 import (
 	"errors"
 	"fmt"
-	"strings"
 )
 
 const _NO_DESCRIPTION = "error with no description"
 
 var errDefault = errors.New(_NO_DESCRIPTION)
-
-type joinError struct {
-	errs []error
-}
-
-func Join(errs ...error) error {
-	if j, ok := errors.Join(errs...).(joinError); ok {
-		return j
-	}
-	return errors.Join(errs...)
-}
-func (e joinError) Error() string {
-	var b []byte
-	for i, err := range e.errs {
-		if i > 0 {
-			b = append(b, "\n\t"...)
-		}
-		b = append(b, err.Error()...)
-	}
-	return string(b)
-}
-func (e joinError) Unwrap() []error {
-	return e.errs
-}
 
 // Wrap formats an error message with an optional underlying error wrapped as its cause.
 // It locates the error only if it is the first in the chain or if a descripion is missing
@@ -55,24 +30,22 @@ func Wrap(description string, err error) error {
 	if u, ok := err.(interface {
 		Unwrap() []error
 	}); ok && len(u.Unwrap()) > 1 {
-		e := joinError{u.Unwrap()}
-		start, end := errorJoinedCauseFormat(err.Error())
+		start, end := errorJoinedCauseFormat()
 		if description == "" {
-			return fmt.Errorf("%s, %s%w%s", locateAt(errDefault, 2), start, e, end)
+			return fmt.Errorf("%s%s%w%s", locateAt(errDefault, 2), start, err, end)
 		}
-		return fmt.Errorf("%s, %s%w%s", description, start, e, end)
+		return fmt.Errorf("%s%s%w%s", description, start, err, end)
 	}
 	if description == "" {
-		return fmt.Errorf("%s, %s%w", locateAt(errDefault, 2), errorCauseFormat(), err)
+		return fmt.Errorf("%s%s%w", locateAt(errDefault, 2), errorCauseFormat(), err)
 	}
-	return fmt.Errorf("%s, %s%w", description, errorCauseFormat(), err)
+	return fmt.Errorf("%s%s%w", description, errorCauseFormat(), err)
 }
 
 func errorCauseFormat() string {
-	return "caused by:\n\t"
+	return "\n\tcaused by:\n"
 }
 
-func errorJoinedCauseFormat(str string) (string, string) {
-	ordinal := strings.Count(str, "joined:[")
-	return fmt.Sprintf("caused by:\n%d-joined:[\n\t", ordinal), fmt.Sprintf("\n]-%d", ordinal)
+func errorJoinedCauseFormat() (string, string) {
+	return "\n\tcaused by:\n[\n", "\n]"
 }

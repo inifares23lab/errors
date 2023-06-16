@@ -19,3 +19,7 @@ func Unwrap(err error) error {
 func New(s string) error {
 	return errors.New(s)
 }
+
+func Join(errs ...error) error {
+	return errors.Join(errs...)
+}

@@ -38,9 +38,9 @@ func Locate(err error) error {
 //	error: The error with the location of the caller.
 func locateAt(err error, skip int) error {
 	if _, file, line, ok := runtime.Caller(skip); ok {
-		return fmt.Errorf("%s at \"%s:%d\"", err, file, line)
+		return fmt.Errorf("%s\n\tat \"%s:%d\"", err, file, line)
 	}
 	// this should never happen but if it does it adds the goroutine stacktrace with a little extra overhead
-	return fmt.Errorf("%s at \"could not locate the error, getting stacktrace:\n\t(%s)\"",
+	return fmt.Errorf("%s\n\tat \"could not locate the error, getting stacktrace:\n(%s)\"",
 		err, debug.Stack())
 }
