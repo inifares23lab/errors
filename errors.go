@@ -17,5 +17,12 @@ func Unwrap(err error) error {
 }
 
 func New(s string) error {
+	if s == "" {
+		s = _NO_DESCRIPTION
+	}
 	return errors.New(s)
+}
+
+func Join(errs ...error) error {
+	return errors.Join(errs...)
 }

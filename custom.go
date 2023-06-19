@@ -1,42 +1,17 @@
 package errors
 
 import (
-	"errors"
 	"fmt"
-	"strings"
+	"runtime"
+	"runtime/debug"
 )
 
-const _NO_DESCRIPTION = "error with no description"
-
-var errDefault = errors.New(_NO_DESCRIPTION)
-
-type joinError struct {
-	errs []error
-}
-
-func Join(errs ...error) error {
-	if j, ok := errors.Join(errs...).(joinError); ok {
-		return j
-	}
-	return errors.Join(errs...)
-}
-func (e joinError) Error() string {
-	var b []byte
-	for i, err := range e.errs {
-		if i > 0 {
-			b = append(b, "\n\t"...)
-		}
-		b = append(b, err.Error()...)
-	}
-	return string(b)
-}
-func (e joinError) Unwrap() []error {
-	return e.errs
-}
+const (
+	_NO_DESCRIPTION = "error with no description"
+	_CAUSED_BY      = "\n\tcaused by:\n"
+)
 
 // Wrap formats an error message with an optional underlying error wrapped as its cause.
-// It locates the error only if it is the first in the chain or if a descripion is missing
-// to improve the debugging experience without adding too much overhead.
 // Args:
 //
 //	description (string): The description of the error.
@@ -44,35 +19,54 @@ func (e joinError) Unwrap() []error {
 //
 // Returns:
 //
-//	error: The wrapped error with or without the location of the caller.
-func Wrap(description string, err error) error {
-	if err == nil {
-		if description == "" {
-			return nil
-		}
-		return locateAt(errors.New(description), 2)
-	}
-	if u, ok := err.(interface {
-		Unwrap() []error
-	}); ok && len(u.Unwrap()) > 1 {
-		e := joinError{u.Unwrap()}
-		start, end := errorJoinedCauseFormat(err.Error())
-		if description == "" {
-			return fmt.Errorf("%s, %s%w%s", locateAt(errDefault, 2), start, e, end)
-		}
-		return fmt.Errorf("%s, %s%w%s", description, start, e, end)
-	}
+//	error: The wrapped errors.
+func Wrap(description string, cause error) error {
 	if description == "" {
-		return fmt.Errorf("%s, %s%w", locateAt(errDefault, 2), errorCauseFormat(), err)
+		description = _NO_DESCRIPTION
 	}
-	return fmt.Errorf("%s, %s%w", description, errorCauseFormat(), err)
+	if cause == nil {
+		return fmt.Errorf("%s", description)
+	}
+	return fmt.Errorf("%s%s%w", description, _CAUSED_BY, cause)
 }
 
-func errorCauseFormat() string {
-	return "caused by:\n\t"
+// WrapLocate formats an error message with an optional underlying error wrapped as its cause.
+// It also locates the error in order to improve the debugging experience.
+func WrapLocate(description string, cause error) error {
+	if description == "" {
+		description = _NO_DESCRIPTION
+	}
+	if cause == nil {
+		return locateAt(description, 2)
+	}
+	return fmt.Errorf("%s%s%w", locateAt(description, 2), _CAUSED_BY, cause)
 }
 
-func errorJoinedCauseFormat(str string) (string, string) {
-	ordinal := strings.Count(str, "joined:[")
-	return fmt.Sprintf("caused by:\n%d-joined:[\n\t", ordinal), fmt.Sprintf("\n]-%d", ordinal)
+// NewLocate creates a new error with location from a given string.
+//
+// str: the string to create the location from. If empty, a default string will be used.
+// error: the created error
+func NewLocate(str string) error {
+	if str == "" {
+		str = _NO_DESCRIPTION
+	}
+	return locateAt(str, 2)
+}
+
+// locateAt is used to locate the caller that generates this error.
+// Args:
+//
+//	str (string): The string of the error message.
+//	skip (int): Defaults to 2 at the moment, but provided for future extensions.
+//
+// Returns:
+//
+//	error: The error with the location of the caller.
+func locateAt(str string, skip int) error {
+	if _, file, line, ok := runtime.Caller(skip); ok {
+		return fmt.Errorf("%s\n\tat \"%s:%d\"", str, file, line)
+	}
+	// this should never happen but if it does it adds the goroutine stacktrace with a little extra overhead
+	return fmt.Errorf("%s\n\tat \"could not locate the error, getting stacktrace:\n(%s)\"",
+		str, debug.Stack())
 }
