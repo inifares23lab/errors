@@ -12,15 +12,31 @@ func As(err error, target any) bool {
 	return errors.As(err, target)
 }
 
-func Unwrap(err error) error {
-	return errors.Unwrap(err)
+func Unwrap(err error) *stackedError {
+	if err == nil {
+		return nil
+	}
+
+	stacked := errors.Unwrap(err)
+
+	if stacked == nil {
+		return nil
+	}
+
+	if e, ok := stacked.(*stackedError); ok {
+		return e
+	}
+
+	return &stackedError{
+		errorString: stacked.Error(),
+	}
 }
 
 func New(s string) error {
 	if s == "" {
 		s = _NO_DESCRIPTION
 	}
-	return errors.New(s)
+	return &stackedError{errorString: s}
 }
 
 func Join(errs ...error) error {

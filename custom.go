@@ -4,14 +4,44 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
-	"runtime/debug"
-	"strings"
 )
 
 const (
 	_NO_DESCRIPTION = "error with no description"
 	_CAUSED_BY      = "\n\tcaused by:\n"
 )
+
+type stackedError struct {
+	errorString string
+	at          string
+}
+
+func (e *stackedError) At() string {
+	return e.at
+}
+
+func (e *stackedError) Error() string {
+	if e == nil {
+		return "error is nil - " + locateAt(1)
+	}
+	last := Head(e)
+	return fmt.Sprintf(
+		"%s at: %s",
+		last.errorString,
+		last.at,
+	)
+}
+
+func (e *stackedError) String() string {
+	if e == nil {
+		return "error is nil - " + locateAt(1)
+	}
+	var str string
+	for _, err := range Stack(e).([]string) {
+		str += err + "\n"
+	}
+	return str
+}
 
 // Wrap formats an error message with an optional underlying error wrapped as its cause.
 // Args:
@@ -26,10 +56,16 @@ func Wrap(description string, cause error) error {
 	if description == "" {
 		description = _NO_DESCRIPTION
 	}
-	if cause == nil {
-		return fmt.Errorf("%s", description)
+
+	err := &stackedError{
+		errorString: description,
 	}
-	return fmt.Errorf("%s%s%w", description, _CAUSED_BY, cause)
+
+	if cause == nil {
+		return err
+	}
+
+	return fmt.Errorf("%s%s%w", err, _CAUSED_BY, cause)
 }
 
 // WrapLocate formats an error message with an optional underlying error wrapped as its cause.
@@ -38,10 +74,14 @@ func WrapLocate(description string, cause error) error {
 	if description == "" {
 		description = _NO_DESCRIPTION
 	}
-	if cause == nil {
-		return locateAt(description, 2)
+	err := &stackedError{
+		errorString: description,
+		at:          locateAt(2),
 	}
-	return fmt.Errorf("%s%s%w", locateAt(description, 2), _CAUSED_BY, cause)
+	if cause == nil {
+		return err
+	}
+	return fmt.Errorf("%s%s%w", err, _CAUSED_BY, err)
 }
 
 // NewLocate creates a new error with location from a given string.
@@ -52,7 +92,11 @@ func NewLocate(str string) error {
 	if str == "" {
 		str = _NO_DESCRIPTION
 	}
-	return locateAt(str, 2)
+
+	return &stackedError{
+		errorString: str,
+		at:          locateAt(2),
+	}
 }
 
 // locateAt is used to locate the caller that generates this error.
@@ -64,36 +108,51 @@ func NewLocate(str string) error {
 // Returns:
 //
 //	error: The error with the location of the caller.
-func locateAt(str string, skip int) error {
+func locateAt(skip int) string {
 	if _, file, line, ok := runtime.Caller(skip); ok {
-		return fmt.Errorf("%s\n\tat \"%s:%d\"", str, file, line)
+		return fmt.Sprintf("\"%s:%d\"", file, line)
 	}
-	// this should never happen but if it does it adds the goroutine stacktrace with a little extra overhead
-	return fmt.Errorf("%s\n\tat \"could not locate the error, getting stacktrace:\n(%s)\"",
-		str, debug.Stack())
+
+	return fmt.Sprintf("could not locate the caller - skipped %d", skip)
 }
 
-func Last(err error) error {
+func Head(err error) *stackedError {
 	if err == nil {
 		return nil
 	}
-	if e := errors.Unwrap(err); e != nil {
-		err = fmt.Errorf(strings.ReplaceAll(err.Error(), e.Error(), ""))
+
+	stacked := errors.Unwrap(err)
+
+	if stacked == nil {
+		if e, ok := err.(*stackedError); ok {
+			return e
+		}
+		return &stackedError{errorString: err.Error()}
 	}
-	return err
+
+	if e, ok := stacked.(*stackedError); ok {
+		return e
+	}
+
+	return &stackedError{
+		errorString: stacked.Error(),
+	}
 }
 
 func Stack(err error) interface{} {
 	if err == nil {
 		return nil
 	}
-	out := []string{Last(err).Error()}
+
+	out := []string{Head(err).Error()}
+
 	for e := errors.Unwrap(err); e != nil; e = errors.Unwrap(e) {
-		err = e
-		out = append(out, Last(err).Error())
+		out = append(out, Head(e).Error())
 	}
+
 	if len(out) > 0 {
 		return out
 	}
+
 	return nil
 }
