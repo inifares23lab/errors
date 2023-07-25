@@ -1,9 +1,11 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 	"runtime/debug"
+	"strings"
 )
 
 const (
@@ -69,4 +71,29 @@ func locateAt(str string, skip int) error {
 	// this should never happen but if it does it adds the goroutine stacktrace with a little extra overhead
 	return fmt.Errorf("%s\n\tat \"could not locate the error, getting stacktrace:\n(%s)\"",
 		str, debug.Stack())
+}
+
+func Last(err error) error {
+	if err == nil {
+		return nil
+	}
+	if e := errors.Unwrap(err); e != nil {
+		err = fmt.Errorf(strings.ReplaceAll(err.Error(), e.Error(), ""))
+	}
+	return err
+}
+
+func Stack(err error) interface{} {
+	if err == nil {
+		return nil
+	}
+	out := []string{Last(err).Error()}
+	for e := errors.Unwrap(err); e != nil; e = errors.Unwrap(e) {
+		err = e
+		out = append(out, Last(err).Error())
+	}
+	if len(out) > 0 {
+		return out
+	}
+	return nil
 }
