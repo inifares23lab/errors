@@ -28,7 +28,8 @@ func Unwrap(err error) *stackedError {
 	}
 
 	return &stackedError{
-		errorString: stacked.Error(),
+		stacked,
+		"",
 	}
 }
 
@@ -36,7 +37,10 @@ func New(s string) error {
 	if s == "" {
 		s = _NO_DESCRIPTION
 	}
-	return &stackedError{errorString: s}
+	return &stackedError{
+		errors.New(s),
+		"",
+	}
 }
 
 func Join(errs ...error) error {

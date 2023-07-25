@@ -12,35 +12,24 @@ const (
 )
 
 type stackedError struct {
-	errorString string
-	at          string
+	error
+	at string
 }
 
 func (e *stackedError) At() string {
 	return e.at
 }
 
-func (e *stackedError) Error() string {
+func (e *stackedError) String() string {
 	if e == nil {
 		return "error is nil - " + locateAt(1)
 	}
 	last := Head(e)
 	return fmt.Sprintf(
 		"%s at: %s",
-		last.errorString,
+		last.Error(),
 		last.at,
 	)
-}
-
-func (e *stackedError) String() string {
-	if e == nil {
-		return "error is nil - " + locateAt(1)
-	}
-	var str string
-	for _, err := range Stack(e).([]string) {
-		str += err + "\n"
-	}
-	return str
 }
 
 // Wrap formats an error message with an optional underlying error wrapped as its cause.
@@ -57,15 +46,17 @@ func Wrap(description string, cause error) error {
 		description = _NO_DESCRIPTION
 	}
 
-	err := &stackedError{
-		errorString: description,
-	}
-
 	if cause == nil {
-		return err
+		return stackedError{
+			New(description),
+			"",
+		}
 	}
 
-	return fmt.Errorf("%s%s%w", err, _CAUSED_BY, cause)
+	return stackedError{
+		fmt.Errorf("%s%s%w", description, _CAUSED_BY, cause),
+		"",
+	}
 }
 
 // WrapLocate formats an error message with an optional underlying error wrapped as its cause.
@@ -74,14 +65,18 @@ func WrapLocate(description string, cause error) error {
 	if description == "" {
 		description = _NO_DESCRIPTION
 	}
-	err := &stackedError{
-		errorString: description,
-		at:          locateAt(2),
-	}
+
 	if cause == nil {
-		return err
+		return stackedError{
+			New(description),
+			locateAt(2),
+		}
 	}
-	return fmt.Errorf("%s%s%w", err, _CAUSED_BY, err)
+
+	return stackedError{
+		fmt.Errorf("%s%s%w", description, _CAUSED_BY, cause),
+		locateAt(2),
+	}
 }
 
 // NewLocate creates a new error with location from a given string.
@@ -93,9 +88,9 @@ func NewLocate(str string) error {
 		str = _NO_DESCRIPTION
 	}
 
-	return &stackedError{
-		errorString: str,
-		at:          locateAt(2),
+	return stackedError{
+		New(str),
+		locateAt(2),
 	}
 }
 
@@ -127,16 +122,14 @@ func Head(err error) *stackedError {
 		if e, ok := err.(*stackedError); ok {
 			return e
 		}
-		return &stackedError{errorString: err.Error()}
+		return &stackedError{err, ""}
 	}
 
 	if e, ok := stacked.(*stackedError); ok {
 		return e
 	}
 
-	return &stackedError{
-		errorString: stacked.Error(),
-	}
+	return &stackedError{err, ""}
 }
 
 func Stack(err error) interface{} {
