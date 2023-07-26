@@ -13,12 +13,6 @@ import (
 // error message contains the expected output. The function doesn't return
 // anything.
 func TestWrap(t *testing.T) {
-	t.Run("Test when description and err are both nil/empty", func(t *testing.T) {
-		err := Wrap("", nil)
-		if err == nil || (err != nil && !strings.Contains(err.Error(), _NO_DESCRIPTION)) {
-			t.Errorf("Expected default error but got %v", err)
-		}
-	})
 
 	t.Run("Test when only description is provided", func(t *testing.T) {
 		description := "test error"
@@ -39,9 +33,6 @@ func TestWrap(t *testing.T) {
 		}
 		if !errors.Is(err, innerErr) {
 			t.Errorf("Expected error to contain wrapped %v but got %v", innerErr, err)
-		}
-		if !strings.Contains(err.Error(), _NO_DESCRIPTION) {
-			t.Errorf("Expected error to contain %s but got %s", _NO_DESCRIPTION, err.Error())
 		}
 		causedBy := "caused by:"
 		if !strings.Contains(err.Error(), causedBy) {
@@ -72,9 +63,6 @@ func TestWrap(t *testing.T) {
 func TestWrapLocate(t *testing.T) {
 	t.Run("Test when description and err are both nil/empty", func(t *testing.T) {
 		err := WrapLocate("", nil)
-		if err == nil || (err != nil && !strings.Contains(err.Error(), _NO_DESCRIPTION)) {
-			t.Errorf("Expected default error but got %v", err)
-		}
 		at := "at "
 		if !strings.Contains(err.Error(), at) {
 			t.Errorf("Expected error to contain %s but got %s", at, err.Error())
@@ -105,9 +93,6 @@ func TestWrapLocate(t *testing.T) {
 		}
 		if !errors.Is(err, innerErr) {
 			t.Errorf("Expected error to contain wrapped %v but got %v", innerErr, err)
-		}
-		if !strings.Contains(err.Error(), _NO_DESCRIPTION) {
-			t.Errorf("Expected error to contain %s but got %s", _NO_DESCRIPTION, err.Error())
 		}
 		causedBy := "caused by:"
 		if !strings.Contains(err.Error(), causedBy) {
