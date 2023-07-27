@@ -1,7 +1,6 @@
 package errors
 
 import (
-	"errors"
 	"fmt"
 	"runtime"
 )
@@ -14,8 +13,8 @@ type stackedError struct {
 	err error
 }
 
-func (err *stackedError) Unwrap() error {
-	return errors.Unwrap(err)
+func (e *stackedError) Unwrap() error {
+	return e.err
 }
 
 // String returns a string representation of the stackedError.
@@ -23,9 +22,6 @@ func (err *stackedError) Unwrap() error {
 // It returns the error message and the stack trace location.
 // The return type is a string.
 func (e *stackedError) Error() string {
-	if e == nil {
-		return "error is nil - " + caller(1)
-	}
 	str := e.msg
 	if e.at != "" {
 		str = fmt.Sprintf("%s at %s", str, e.at)
@@ -34,6 +30,9 @@ func (e *stackedError) Error() string {
 }
 
 func String(err error) string {
+	if err == nil {
+		return "error is nil - " + caller(2)
+	}
 	if e, ok := err.(*stackedError); ok && e != nil {
 		return e.String()
 	}
@@ -41,10 +40,6 @@ func String(err error) string {
 }
 
 func (e *stackedError) String() string {
-	if e == nil {
-		return "error is nil - " + caller(1)
-	}
-
 	str := e.msg
 	if e.at != "" {
 		str = fmt.Sprintf("%s at %s", str, e.at)
@@ -157,7 +152,7 @@ func TWrap(description string, cause error) error {
 //	string: representing the location of the caller.
 func caller(skip int) string {
 	if _, file, line, ok := runtime.Caller(skip); ok {
-		return fmt.Sprintf("\"%s:%d\"", file, line)
+		return fmt.Sprintf("%s:%d", file, line)
 	}
 
 	return fmt.Sprintf("could not locate the caller - skipped %d", skip)
