@@ -15,11 +15,3 @@ func As(err error, target any) bool {
 func Join(errs ...error) error {
 	return errors.Join(errs...)
 }
-
-func New(msg string) error {
-	return &stackedError{
-		msg,
-		"",
-		nil,
-	}
-}

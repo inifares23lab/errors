@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
-	"strings"
 )
+
+const _CAUSED_BY = "\n\tcaused by:\n"
 
 type stackedError struct {
 	msg string
@@ -23,27 +24,39 @@ func (err *stackedError) Unwrap() error {
 // The return type is a string.
 func (e *stackedError) Error() string {
 	if e == nil {
-		return "error is nil - " + locateAt(1)
+		return "error is nil - " + caller(1)
 	}
-	return fmt.Sprintf(
-		"%s at: %s",
-		e.msg,
-		e.at,
-	)
+	str := e.msg
+	if e.at != "" {
+		str = fmt.Sprintf("%s at %s", str, e.at)
+	}
+	return str
 }
 
-func head(err error) string {
-	if e, ok := err.(*stackedError); ok {
-		return e.msg
+func String(err error) string {
+	if e, ok := err.(*stackedError); ok && e != nil {
+		return e.String()
 	}
-	if err == nil {
-		return ""
+	return err.Error()
+}
+
+func (e *stackedError) String() string {
+	if e == nil {
+		return "error is nil - " + caller(1)
 	}
-	stacked := errors.Unwrap(err)
-	if stacked == nil {
-		return err.Error()
+
+	str := e.msg
+	if e.at != "" {
+		str = fmt.Sprintf("%s at %s", str, e.at)
 	}
-	return strings.Replace(err.Error(), stacked.Error(), "", 1)
+
+	if err, ok := e.err.(*stackedError); ok && err != nil {
+		str = fmt.Sprintf("%s%s%s", str, _CAUSED_BY, err.String())
+	} else if e.err != nil {
+		str = fmt.Sprintf("%s%s%s", str, _CAUSED_BY, e.err.Error())
+	}
+
+	return str
 }
 
 func Stack(err error) interface{} {
@@ -51,24 +64,23 @@ func Stack(err error) interface{} {
 		return nil
 	}
 
-	type stackString struct {
-		msg string
-		at  string
-	}
+	out := []map[string]string{}
 
-	out := []stackString{}
-	e, ok := err.(*stackedError)
-
-LOOP:
-	for {
-		switch {
-		case ok:
-			out = append(out, stackString{e.msg, e.at})
-			fallthrough
-		case ok && e.err != nil:
-			e, ok = e.err.(*stackedError)
-		default:
-			break LOOP
+	for e, ok := err.(*stackedError); ok; {
+		m := map[string]string{
+			"error": e.msg,
+		}
+		if e.at != "" {
+			m["at"] = e.at
+		}
+		out = append(out, m)
+		tmpErr := e.err
+		if tmpErr == nil {
+			break
+		}
+		e, ok = tmpErr.(*stackedError)
+		if !ok {
+			out = append(out, map[string]string{"error": tmpErr.Error()})
 		}
 	}
 
@@ -77,6 +89,26 @@ LOOP:
 	}
 
 	return nil
+}
+
+func New(msg string) error {
+	return &stackedError{
+		msg,
+		"",
+		nil,
+	}
+}
+
+// TNew creates a new error with location from a given string.
+//
+// str: the string to create the location from. If empty, a default string will be used.
+// error: the created error
+func TNew(str string) error {
+	return &stackedError{
+		str,
+		caller(2),
+		nil,
+	}
 }
 
 // Wrap wraps an error with a description and an optional cause.
@@ -95,9 +127,9 @@ func Wrap(description string, cause error) error {
 	}
 }
 
-// WrapLocate wraps an error with a description and a cause.
+// TWrap wraps an error with a description and a cause.
 //
-// The WrapLocate function takes a description string and an error cause as
+// The TWrap function takes a description string and an error cause as
 // parameters. It checks if the description is empty, and if so, it sets it to
 // "_NO_DESCRIPTION". If the cause is nil, it returns a stackedError with a new
 // error created from the description, and the location of the error set to the
@@ -106,27 +138,15 @@ func Wrap(description string, cause error) error {
 // the cause, and the location of the error set to the calling function.
 //
 // The function returns an error of type stackedError.
-func WrapLocate(description string, cause error) error {
+func TWrap(description string, cause error) error {
 	return &stackedError{
 		description,
-		locateAt(2),
+		caller(2),
 		cause,
 	}
 }
 
-// NewLocate creates a new error with location from a given string.
-//
-// str: the string to create the location from. If empty, a default string will be used.
-// error: the created error
-func NewLocate(str string) error {
-	return &stackedError{
-		str,
-		locateAt(2),
-		nil,
-	}
-}
-
-// locateAt is used to locate the caller that generates this error.
+// caller is used to locate the caller that generates this error.
 // Args:
 //
 //	str (string): The string of the error message.
@@ -134,8 +154,8 @@ func NewLocate(str string) error {
 //
 // Returns:
 //
-//	error: The error with the location of the caller.
-func locateAt(skip int) string {
+//	string: representing the location of the caller.
+func caller(skip int) string {
 	if _, file, line, ok := runtime.Caller(skip); ok {
 		return fmt.Sprintf("\"%s:%d\"", file, line)
 	}

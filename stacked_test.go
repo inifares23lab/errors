@@ -62,7 +62,7 @@ func TestWrap(t *testing.T) {
 
 func TestWrapLocate(t *testing.T) {
 	t.Run("Test when description and err are both nil/empty", func(t *testing.T) {
-		err := WrapLocate("", nil)
+		err := TWrap("", nil)
 		at := "at "
 		if !strings.Contains(err.Error(), at) {
 			t.Errorf("Expected error to contain %s but got %s", at, err.Error())
@@ -71,7 +71,7 @@ func TestWrapLocate(t *testing.T) {
 
 	t.Run("Test when only description is provided", func(t *testing.T) {
 		description := "test error"
-		err := WrapLocate(description, nil)
+		err := TWrap(description, nil)
 		if err == nil {
 			t.Errorf("Expected non-nil error but got nil")
 		}
@@ -87,7 +87,7 @@ func TestWrapLocate(t *testing.T) {
 
 	t.Run("Test when only err is provided", func(t *testing.T) {
 		innerErr := errors.New("inner error")
-		err := WrapLocate("", innerErr)
+		err := TWrap("", innerErr)
 		if err == nil {
 			t.Errorf("Expected non-nil error but got nil")
 		}
