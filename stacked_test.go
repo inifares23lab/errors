@@ -2,105 +2,128 @@ package errors
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 )
 
-// TestWrap tests the Wrap function.
-//
-// It provides tests for various scenarios where Wrap is provided with different
-// input parameters. The function tests if Wrap behaves as expected and if the
-// error message contains the expected output. The function doesn't return
-// anything.
-func TestWrap(t *testing.T) {
+func TestStackedError_String(t *testing.T) {
+	// Testing the string representation of a stackedError without additional information
+	err := &stackedError{
+		msg: "Error message",
+	}
+	expected := "Error message"
+	if result := err.String(); !strings.EqualFold(result, expected) {
+		t.Errorf("Expected %s, but got %s", expected, result)
+	}
 
-	t.Run("Test when only description is provided", func(t *testing.T) {
-		description := "test error"
-		err := Wrap(description, nil)
-		if err == nil {
-			t.Errorf("Expected non-nil error but got nil")
-		}
-		if !strings.Contains(err.Error(), description) {
-			t.Errorf("Expected error to contain %s but got %s", description, err.Error())
-		}
-	})
+	// Testing the string representation of a stackedError with additional information
+	err = &stackedError{
+		msg: "Error message",
+		at:  "some location",
+	}
+	expected = "Error message at some location"
+	if result := err.String(); !strings.EqualFold(result, expected) {
+		t.Errorf("Expected %s, but got %s", expected, result)
+	}
 
-	t.Run("Test when only err is provided", func(t *testing.T) {
-		innerErr := errors.New("inner error")
-		err := Wrap("", innerErr)
-		if err == nil {
-			t.Errorf("Expected non-nil error but got nil")
-		}
-		if !errors.Is(err, innerErr) {
-			t.Errorf("Expected error to contain wrapped %v but got %v", innerErr, err)
-		}
-		causedBy := "caused by:"
-		if !strings.Contains(err.Error(), causedBy) {
-			t.Errorf("Expected error to contain %s but got %s", causedBy, err.Error())
-		}
-	})
+	// Testing the string representation of a stackedError with a caused by error
+	err = &stackedError{
+		msg: "Error message",
+		err: New("Caused by error"),
+	}
+	expected = "Error message\n\tcaused by:\nCaused by error"
+	if result := err.String(); !strings.EqualFold(result, expected) {
+		t.Errorf("Expected %s, but got %s", expected, result)
+	}
 
-	t.Run("Test when description and err are both provided", func(t *testing.T) {
-		description := "test error"
-		innerErr := errors.New("inner error")
-		err := Wrap(description, innerErr)
-		if err == nil {
-			t.Errorf("Expected non-nil error but got nil")
-		}
-		if !errors.Is(err, innerErr) {
-			t.Errorf("Expected error to contain wrapped %v but got %v", innerErr, err)
-		}
-		if !strings.Contains(err.Error(), description) {
-			t.Errorf("Expected error to contain %s but got %s", description, err.Error())
-		}
-		causedBy := "caused by:"
-		if !strings.Contains(err.Error(), causedBy) {
-			t.Errorf("Expected error to contain %s but got %s", causedBy, err.Error())
-		}
-	})
+	// Testing the string representation of a stackedError with a caused by error
+	err = &stackedError{
+		msg: "Error message",
+		err: New("Caused by error"),
+		at:  "some location",
+	}
+	expected = "Error message at some location\n\tcaused by:\nCaused by error"
+	if result := err.String(); !strings.EqualFold(result, expected) {
+		t.Errorf("Expected %s, but got %s", expected, result)
+	}
 }
 
-func TestWrapLocate(t *testing.T) {
-	t.Run("Test when description and err are both nil/empty", func(t *testing.T) {
-		err := TWrap("", nil)
-		at := "at "
-		if !strings.Contains(err.Error(), at) {
-			t.Errorf("Expected error to contain %s but got %s", at, err.Error())
-		}
-	})
+func TestTWrap(t *testing.T) {
+	cause := New("This is the cause error")
 
-	t.Run("Test when only description is provided", func(t *testing.T) {
-		description := "test error"
-		err := TWrap(description, nil)
-		if err == nil {
-			t.Errorf("Expected non-nil error but got nil")
-		}
-		if !strings.Contains(err.Error(), description) {
-			t.Errorf("Expected error to contain %s but got %s", description, err.Error())
-		}
-		at := "at "
-		if !strings.Contains(err.Error(), at) {
-			t.Errorf("Expected error to contain %s but got %s", at, err.Error())
-		}
+	// Test case 1: Wrapping an error with a description
+	err := TWrap("This is the description", cause)
+	if !strings.Contains(err.Error(), "This is the description") {
+		t.Errorf("Expected error description 'This is the description', got '%s'", err.Error())
+	}
+	if err.(*stackedError).err != cause {
+		t.Errorf("Expected cause error '%v', got '%v'", cause, err.(*stackedError).err)
+	}
 
-	})
+	// Test case 2: Wrapping an error without a description
+	err = TWrap("", cause)
+	desc := strings.Trim(strings.Split(err.Error(), "at")[0], " ")
+	if desc != "" {
+		t.Errorf("Expected empty error description, got '%s'", desc)
+	}
+	if err.(*stackedError).err != cause {
+		t.Errorf("Expected cause error '%v', got '%v'", cause, err.(*stackedError).err)
+	}
+}
 
-	t.Run("Test when only err is provided", func(t *testing.T) {
-		innerErr := errors.New("inner error")
-		err := TWrap("", innerErr)
-		if err == nil {
-			t.Errorf("Expected non-nil error but got nil")
-		}
-		if !errors.Is(err, innerErr) {
-			t.Errorf("Expected error to contain wrapped %v but got %v", innerErr, err)
-		}
-		causedBy := "caused by:"
-		if !strings.Contains(err.Error(), causedBy) {
-			t.Errorf("Expected error to contain %s but got %s", causedBy, err.Error())
-		}
-		at := "at "
-		if !strings.Contains(err.Error(), at) {
-			t.Errorf("Expected error to contain %s but got %s", at, err.Error())
-		}
-	})
+func TestStack(t *testing.T) {
+	// Testing when error is nil
+
+	out := Stack(nil)
+	if out != nil {
+		t.Errorf("Expected nil or empty, got %v", out)
+	}
+
+	// Testing when error is not a stackedError
+	err := New("Test Error")
+	expectedOutput := []map[string]string{
+		{"error": "Test Error"},
+	}
+	out = Stack(err)
+	if !reflect.DeepEqual(out, expectedOutput) {
+		t.Errorf("Expected %v, got %v", expectedOutput, out)
+	}
+
+	// Testing when error is a stackedError with nested stackedErrors
+	err1 := &stackedError{
+		msg: "Error 1",
+		err: &stackedError{
+			msg: "Error 2",
+			err: errors.New("Error 3"),
+		},
+	}
+	expectedOutput = []map[string]string{
+		{"error": "Error 1"},
+		{"error": "Error 2"},
+		{"error": "Error 3"},
+	}
+	out = Stack(err1)
+	if !reflect.DeepEqual(out, expectedOutput) {
+		t.Errorf("Expected %v, got %v", expectedOutput, out)
+	}
+
+	// Testing when error is a stackedError with nested stackedErrors and at field
+	err2 := &stackedError{
+		msg: "Error 1",
+		err: &stackedError{
+			msg: "Error 2",
+			at:  "main.go:10",
+			err: errors.New("Error 3"),
+		},
+	}
+	expectedOutput = []map[string]string{
+		{"error": "Error 1"},
+		{"error": "Error 2", "at": "main.go:10"},
+		{"error": "Error 3"},
+	}
+	out = Stack(err2)
+	if !reflect.DeepEqual(out, expectedOutput) {
+		t.Errorf("Expected %v, got %v", expectedOutput, out)
+	}
 }

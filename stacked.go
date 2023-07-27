@@ -13,6 +13,9 @@ type stackedError struct {
 	err error
 }
 
+// Unwrap returns the underlying error of the stackedError.
+//
+// It returns an error.
 func (e *stackedError) Unwrap() error {
 	return e.err
 }
@@ -29,6 +32,14 @@ func (e *stackedError) Error() string {
 	return str
 }
 
+// String returns a string representation of the given error
+// including all stacked underlying errors.
+//
+// It takes an error as a parameter and checks if it is nil. If the error is nil,
+// it returns the string "error is nil - " concatenated with the result of the
+// caller function. If the error is of type *stackedError and not nil, it calls
+// the String method of the error and returns its result. Otherwise, it calls the
+// Error method of the error and returns its result.
 func String(err error) string {
 	if err == nil {
 		return "error is nil - " + caller(2)
@@ -39,6 +50,11 @@ func String(err error) string {
 	return err.Error()
 }
 
+// String returns the string representation of the stackedError in full.
+//
+// Returns:
+//
+//	string: The string representation of the stackedError.
 func (e *stackedError) String() string {
 	str := e.msg
 	if e.at != "" {
@@ -54,6 +70,9 @@ func (e *stackedError) String() string {
 	return str
 }
 
+// Stack returns the stack trace of an error.
+//
+// It takes an error as a parameter and returns an interface{}.
 func Stack(err error) interface{} {
 	if err == nil {
 		return nil
@@ -86,6 +105,13 @@ func Stack(err error) interface{} {
 	return nil
 }
 
+// New creates a new stackedError with the given message.
+//
+// Parameters:
+// - msg: the error message.
+//
+// Returns:
+// - error: the newly created stackedError.
 func New(msg string) error {
 	return &stackedError{
 		msg,
@@ -122,17 +148,15 @@ func Wrap(description string, cause error) error {
 	}
 }
 
-// TWrap wraps an error with a description and a cause.
+// TWrap wraps an error with a description and cause.
+// it includes the caller location
 //
-// The TWrap function takes a description string and an error cause as
-// parameters. It checks if the description is empty, and if so, it sets it to
-// "_NO_DESCRIPTION". If the cause is nil, it returns a stackedError with a new
-// error created from the description, and the location of the error set to the
-// calling function. If the cause is not nil, it returns a stackedError with an
-// error created by concatenating the description, the "_CAUSED_BY" string, and
-// the cause, and the location of the error set to the calling function.
+// Parameters:
+//   - description: a string representing the description of the error.
+//   - cause: an error representing the cause of the error.
 //
-// The function returns an error of type stackedError.
+// Returns:
+//   - error: the wrapped error.
 func TWrap(description string, cause error) error {
 	return &stackedError{
 		description,
