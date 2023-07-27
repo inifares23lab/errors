@@ -20,7 +20,7 @@ func (e *stackedError) Unwrap() error {
 	return e.err
 }
 
-// String returns a string representation of the stackedError.
+// Error() returns a string representation of the stackedError.
 //
 // It returns the error message and the stack trace location.
 // The return type is a string.
@@ -44,24 +44,20 @@ func String(err error) string {
 	if err == nil {
 		return "error is nil - " + caller(2)
 	}
-	if e, ok := err.(*stackedError); ok && e != nil {
+	if e, ok := err.(*stackedError); ok {
 		return e.String()
 	}
 	return err.Error()
 }
 
 // String returns the string representation of the stackedError in full.
-//
-// Returns:
-//
-//	string: The string representation of the stackedError.
 func (e *stackedError) String() string {
 	str := e.msg
 	if e.at != "" {
 		str = fmt.Sprintf("%s at %s", str, e.at)
 	}
 
-	if err, ok := e.err.(*stackedError); ok && err != nil {
+	if err, ok := e.err.(*stackedError); ok {
 		str = fmt.Sprintf("%s%s%s", str, _CAUSED_BY, err.String())
 	} else if e.err != nil {
 		str = fmt.Sprintf("%s%s%s", str, _CAUSED_BY, e.err.Error())
