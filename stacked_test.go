@@ -2,6 +2,7 @@ package errors
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -125,5 +126,92 @@ func TestStack(t *testing.T) {
 	out = Stack(err2)
 	if !reflect.DeepEqual(out, expectedOutput) {
 		t.Errorf("Expected %v, got %v", expectedOutput, out)
+	}
+}
+
+// tests that the local Unwrap function is backward compatble with standard library
+// and correctly unwrapps erros generated with fmt.Errorf("%w", err)
+func TestUnwrap(t *testing.T) {
+	// Test case 1: Unwrapping an error generated with fmt.Errorf("%w", err)
+	err := New("This is the wrapped error")
+	wrappedErr := fmt.Errorf("hey %w", err)
+	unwrappedErr := Unwrap(wrappedErr)
+	if unwrappedErr != err {
+		t.Errorf("Unwrap() returned incorrect error, expected: %v, got: %v", err, unwrappedErr)
+	}
+
+	// Test case 2: Unwrapping an error that is not generated with fmt.Errorf("%w", err)
+	err = New("This is the wrapped stacked error")
+	unwrappedErr = Unwrap(err)
+	if unwrappedErr != nil {
+		t.Errorf("Unwrap() returned incorrect error, expected: %v, got: %v", err, unwrappedErr)
+	}
+
+	err = TNew("This is the wrapped stackedError - level 0")
+	err1 := fmt.Errorf("this is standard wrapped - level 1, %w", err)
+	err2 := TWrap("this is not standard wrapped - level 2", err)
+	unwrapped1 := Unwrap(err1)
+	unwrapped2 := Unwrap(err2)
+	if unwrapped1 != err {
+		t.Errorf("Unwrap() returned incorrect error, expected: %v, got: %v", err, unwrapped1)
+	}
+	if unwrapped2 != err {
+		t.Errorf("Unwrap() returned incorrect error, expected: %v, got: %v", err1, unwrapped2)
+	}
+}
+
+// tests that the local Is function is backward compatble with standard library
+// and correctly handles erros generated with fmt.Errorf("%w", err)
+func TestIs(t *testing.T) {
+	// Test case 1: comparing an error generated with fmt.Errorf("%w", err)
+	err := New("This is the wrapped error")
+	wrappedErr := fmt.Errorf("hey %w", err)
+	if !Is(wrappedErr, err) {
+		t.Errorf("Is() failed with %v and %v\n", err, wrappedErr)
+	}
+
+	// Test case 2: comparing a nil error
+	err = New("This is the wrapped stacked error")
+	if Is(nil, err) {
+		t.Errorf("Is() did not fail with %v and %v\n", nil, err)
+	}
+
+	// Test case 3: comparing errors generated with this and the standard library
+	err = New("This is the wrapped stackedError - level 0")
+	err1 := fmt.Errorf("this is standard wrapped - level 1, %w", err)
+	err2 := Wrap("this is not standard wrapped - level 2", err1)
+	if !Is(err1, err) {
+		t.Errorf("Is() failed with %v and %v\n", err, err1)
+	}
+	if !Is(err2, err1) {
+		t.Errorf("Is() failed with %v and %v\n", err1, err2)
+	}
+	if !Is(err2, err) {
+		t.Errorf("Is() failed with %v and %v\n", err, err2)
+	}
+}
+
+// tests that the local As function is backward compatble with standard library
+// and correctly handles erros generated with fmt.Errorf("%w", err)
+func TestAs(t *testing.T) {
+	// Test case 1: As() on error generated with fmt.Errorf("%w", err)
+	err := New("This is the wrapped error")
+	wrappedErr := fmt.Errorf("hey %w", err)
+	if !As(wrappedErr, &err) {
+		t.Errorf("As() failed with %v and %v\n", err, wrappedErr)
+	}
+
+	// Test case 2: As() on error generated with this and the standard library
+	err = New("This is the wrapped stackedError - level 0")
+	err1 := fmt.Errorf("this is standard wrapped - level 1, %w", err)
+	err2 := Wrap("this is not standard wrapped - level 2", err1)
+	if !As(err1, &err) {
+		t.Errorf("As() failed with %v and %v\n", err, err1)
+	}
+	if !As(err2, &err1) {
+		t.Errorf("As() failed with %v and %v\n", err1, err2)
+	}
+	if !As(err2, &err) {
+		t.Errorf("As() failed with %v and %v\n", err, err2)
 	}
 }

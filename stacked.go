@@ -1,6 +1,7 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"runtime"
 )
@@ -18,6 +19,14 @@ type stackedError struct {
 // It returns an error.
 func (e *stackedError) Unwrap() error {
 	return e.err
+}
+
+func Unwrap(err error) error {
+	u, ok := err.(*stackedError)
+	if !ok {
+		return errors.Unwrap(err)
+	}
+	return u.Unwrap()
 }
 
 // Error() returns a string representation of the stackedError.
