@@ -14,7 +14,8 @@ func As(err error, target any) bool {
 	return errors.As(err, target)
 }
 
-// Wraps standard errors.Join
-func Join(errs ...error) error {
-	return errors.Join(errs...)
-}
+// // go >= 1.20
+// // Wraps standard errors.Join
+// func Join(errs ...error) error {
+// 	return errors.Join(errs...)
+// }
