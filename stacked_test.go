@@ -14,7 +14,7 @@ func TestStackedError_String(t *testing.T) {
 		msg: "Error message",
 	}
 	expected := "Error message"
-	if result := err.String(); !strings.EqualFold(result, expected) {
+	if result := err.Error(); !strings.EqualFold(result, expected) {
 		t.Errorf("Expected %s, but got %s", expected, result)
 	}
 
@@ -24,7 +24,7 @@ func TestStackedError_String(t *testing.T) {
 		at:  "some location",
 	}
 	expected = "Error message at some location"
-	if result := err.String(); !strings.EqualFold(result, expected) {
+	if result := err.Error(); !strings.EqualFold(result, expected) {
 		t.Errorf("Expected %s, but got %s", expected, result)
 	}
 
@@ -34,7 +34,7 @@ func TestStackedError_String(t *testing.T) {
 		err: New("Caused by error"),
 	}
 	expected = "Error message\n\tcaused by:\nCaused by error"
-	if result := err.String(); !strings.EqualFold(result, expected) {
+	if result := err.Error(); !strings.EqualFold(result, expected) {
 		t.Errorf("Expected %s, but got %s", expected, result)
 	}
 
@@ -45,7 +45,7 @@ func TestStackedError_String(t *testing.T) {
 		at:  "some location",
 	}
 	expected = "Error message at some location\n\tcaused by:\nCaused by error"
-	if result := err.String(); !strings.EqualFold(result, expected) {
+	if result := err.Error(); !strings.EqualFold(result, expected) {
 		t.Errorf("Expected %s, but got %s", expected, result)
 	}
 }
@@ -55,7 +55,7 @@ func TestTWrap(t *testing.T) {
 
 	// Test case 1: Wrapping an error with a description
 	err := TWrap("This is the description", cause)
-	if !strings.Contains(err.Error(), "This is the description") {
+	if !strings.Contains(Last(err), "This is the description") {
 		t.Errorf("Expected error description 'This is the description', got '%s'", err.Error())
 	}
 	if err.(*stackedError).err != cause {
@@ -64,7 +64,7 @@ func TestTWrap(t *testing.T) {
 
 	// Test case 2: Wrapping an error without a description
 	err = TWrap("", cause)
-	desc := strings.Trim(strings.Split(err.Error(), "at")[0], " ")
+	desc := strings.Trim(strings.Split(Last(err), "at")[0], " ")
 	if desc != "" {
 		t.Errorf("Expected empty error description, got '%s'", desc)
 	}

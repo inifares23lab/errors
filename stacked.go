@@ -31,9 +31,9 @@ func Unwrap(err error) error {
 
 // Error() returns a string representation of the stackedError.
 //
-// It returns the error message and the stack trace location.
+// It returns the last error message and the stack trace location.
 // The return type is a string.
-func (e *stackedError) Error() string {
+func (e *stackedError) Last() string {
 	str := e.msg
 	if e.at != "" {
 		str = fmt.Sprintf("%s at %s", str, e.at)
@@ -49,25 +49,25 @@ func (e *stackedError) Error() string {
 // caller function. If the error is of type *stackedError and not nil, it calls
 // the String method of the error and returns its result. Otherwise, it calls the
 // Error method of the error and returns its result.
-func String(err error) string {
+func Last(err error) string {
 	if err == nil {
 		return "error is nil - " + caller(2)
 	}
 	if e, ok := err.(*stackedError); ok {
-		return e.String()
+		return e.Last()
 	}
 	return err.Error()
 }
 
 // String returns the string representation of the stackedError in full.
-func (e *stackedError) String() string {
+func (e *stackedError) Error() string {
 	str := e.msg
 	if e.at != "" {
 		str = fmt.Sprintf("%s at %s", str, e.at)
 	}
 
 	if err, ok := e.err.(*stackedError); ok {
-		str = fmt.Sprintf("%s%s%s", str, _CAUSED_BY, err.String())
+		str = fmt.Sprintf("%s%s%s", str, _CAUSED_BY, err.Error())
 	} else if e.err != nil {
 		str = fmt.Sprintf("%s%s%s", str, _CAUSED_BY, e.err.Error())
 	}
@@ -78,7 +78,7 @@ func (e *stackedError) String() string {
 // Stack returns the stack trace of an error.
 //
 // It takes an error as a parameter and returns an interface{}.
-func Stack(err error) interface{} {
+func StackTrace(err error) interface{} {
 	if err == nil {
 		return nil
 	}
